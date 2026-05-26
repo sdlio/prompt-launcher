@@ -1,0 +1,1130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>prompt-launcher — v1 overlay</title>
+<style>
+  /* ---------- design tokens ---------- */
+  :root {
+    /* Overlay sizing — matches tauri.conf.json windows[0] */
+    --overlay-w: 600px;
+    --overlay-h: 400px;
+    --overlay-radius: 14px;
+
+    /* Type scale */
+    --font-ui: -apple-system, "SF Pro Text", "SF Pro", BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --fs-input: 19px;
+    --fs-title: 14px;
+    --fs-meta:  12px;
+    --fs-kbd:   11px;
+    --fs-hint:  12px;
+
+    /* Spacing */
+    --pad-input: 18px 22px;
+    --pad-row:   10px 16px;
+    --gap-row:   2px;
+    --pad-status: 8px 14px;
+
+    /* Accent — two-token system. See docs/DESIGN.md § Colors.
+       `--accent` is the interactive fill (white text sits on it; must pass WCAG AA).
+       `--accent-tint` is the decorative bright blue (selection fills, brand dot, focus glow).
+       `--accent-strong` is the *darker* hover/pressed state for CTAs (darkens, never brightens). */
+    --accent:        #3D6FE8;
+    --accent-strong: #2F5BD0;
+    --accent-tint:   #5B8CFF;
+    --accent-on:     white;
+    --accent-ink:    #9BB6FF;   /* match-highlight + badge text — AA-safe on tinted bg */
+
+    /* Dark surface (default) */
+    --surface:        rgba(28, 28, 32, 0.78);
+    --surface-solid:  rgb(34, 34, 38);
+    --hairline:       rgba(255,255,255,0.08);
+    --hairline-strong:rgba(255,255,255,0.14);
+    --ink:            rgba(255,255,255,0.96);
+    --ink-muted:      rgba(255,255,255,0.62);
+    --ink-faint:      rgba(255,255,255,0.42);
+    --row-hover:      rgba(255,255,255,0.04);
+    --row-select:     color-mix(in oklch, var(--accent-tint) 22%, transparent);
+    --row-select-ink: var(--ink);
+    --match-bg:       color-mix(in oklch, var(--accent-tint) 32%, transparent);
+    --kbd-bg:         rgba(255,255,255,0.08);
+    --kbd-ink:        rgba(255,255,255,0.72);
+    --tag-bg:         rgba(255,255,255,0.06);
+    --tag-ink:        rgba(255,255,255,0.65);
+    --tag-border:     rgba(255,255,255,0.08);
+    --shadow:
+      0 1px 0 rgba(255,255,255,0.05) inset,
+      0 0 0 1px rgba(0,0,0,0.55),
+      0 30px 80px -10px rgba(0,0,0,0.55),
+      0 14px 40px -10px rgba(0,0,0,0.45);
+    --backdrop-blur: 38px;
+    --backdrop-sat: 180%;
+
+    /* Density */
+    --row-min-h: 52px;
+  }
+
+  [data-theme="light"] {
+    --surface:        rgba(244, 244, 247, 0.78);
+    --surface-solid:  rgb(248, 248, 250);
+    --hairline:       rgba(0,0,0,0.07);
+    --hairline-strong:rgba(0,0,0,0.14);
+    --ink:            rgba(0,0,0,0.92);
+    --ink-muted:      rgba(0,0,0,0.55);
+    --ink-faint:      rgba(0,0,0,0.36);
+    --row-hover:      rgba(0,0,0,0.035);
+    --row-select:     color-mix(in oklch, var(--accent-tint) 18%, transparent);
+    --match-bg:       color-mix(in oklch, var(--accent-tint) 28%, transparent);
+    --kbd-bg:         rgba(0,0,0,0.06);
+    --kbd-ink:        rgba(0,0,0,0.68);
+    --tag-bg:         rgba(0,0,0,0.04);
+    --tag-ink:        rgba(0,0,0,0.6);
+    --tag-border:     rgba(0,0,0,0.06);
+    --shadow:
+      0 1px 0 rgba(255,255,255,0.7) inset,
+      0 0 0 1px rgba(0,0,0,0.08),
+      0 30px 80px -10px rgba(0,0,0,0.32),
+      0 14px 40px -10px rgba(0,0,0,0.22);
+  }
+
+  [data-density="compact"] {
+    --pad-input: 14px 20px;
+    --pad-row:   7px 16px;
+    --row-min-h: 42px;
+    --fs-input:  17px;
+    --fs-title:  13px;
+  }
+
+  /* ---------- page chrome (NOT part of the artifact — just for previewing) ---------- */
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--font-ui);
+    color: #eaeaef;
+    background: #0e0e12;
+    /* simulated desktop wallpaper so the overlay can prove its vibrancy */
+    background-image:
+      radial-gradient(1200px 800px at 20% 10%, #2c1748 0%, transparent 60%),
+      radial-gradient(900px 700px at 85% 30%, #0e3a5a 0%, transparent 55%),
+      radial-gradient(1100px 800px at 70% 95%, #4a1438 0%, transparent 60%),
+      linear-gradient(180deg, #0e0e12 0%, #0a0a0e 100%);
+    overflow-x: hidden;
+  }
+  body[data-bg="light-wall"] {
+    background:
+      radial-gradient(1000px 700px at 15% 15%, #cfd9ff 0%, transparent 60%),
+      radial-gradient(900px 700px at 85% 30%, #ffd9e6 0%, transparent 55%),
+      radial-gradient(1200px 800px at 70% 90%, #d6f0d6 0%, transparent 60%),
+      linear-gradient(180deg, #e8eaf2 0%, #d6d9e3 100%);
+  }
+
+  .stage {
+    min-height: 100%;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: 22px 28px 28px;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    color: #cfcfdc;
+  }
+  .header h1 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin: 0;
+    color: #b4b4c4;
+  }
+  .header h1 span {
+    color: #7c7c8c;
+    font-weight: 500;
+  }
+  .header .hint {
+    font-size: 12px;
+    color: #7c7c8c;
+    font-feature-settings: "tnum";
+  }
+  body[data-bg="light-wall"] .header h1 { color: #2a2a3a; }
+  body[data-bg="light-wall"] .header h1 span { color: #6a6a7a; }
+  body[data-bg="light-wall"] .header .hint { color: #4a4a5a; }
+
+  .center {
+    display: grid;
+    place-items: center;
+    padding: 24px 0;
+  }
+
+  .footer-note {
+    color: #6a6a7c;
+    font-size: 11px;
+    text-align: center;
+    font-family: var(--font-mono);
+  }
+  body[data-bg="light-wall"] .footer-note { color: #555566; }
+
+  /* ---------- overlay (THE design artifact) ---------- */
+  .overlay {
+    width: var(--overlay-w);
+    height: var(--overlay-h);
+    border-radius: var(--overlay-radius);
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(var(--backdrop-blur)) saturate(var(--backdrop-sat));
+    -webkit-backdrop-filter: blur(var(--backdrop-blur)) saturate(var(--backdrop-sat));
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    overflow: hidden;
+    font-family: var(--font-ui);
+    /* tiny pop on appear */
+    animation: pop 140ms cubic-bezier(.2, .8, .2, 1) both;
+    isolation: isolate;
+  }
+  @keyframes pop {
+    from { opacity: 0; transform: translateY(4px) scale(0.985); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes dismiss {
+    from { opacity: 1; transform: none; }
+    to   { opacity: 0; transform: translateY(-2px) scale(0.99); }
+  }
+  .overlay.closing { animation: dismiss 110ms ease-in both; }
+  @media (prefers-reduced-motion: reduce) {
+    .overlay, .overlay.closing { animation: none; }
+  }
+
+  /* — input row — */
+  .input-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: var(--pad-input);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .input-row .glyph {
+    width: 18px; height: 18px;
+    flex: 0 0 18px;
+    color: var(--ink-muted);
+  }
+  .input-row input {
+    appearance: none;
+    border: 0; outline: 0; background: transparent;
+    width: 100%;
+    color: var(--ink);
+    font-size: var(--fs-input);
+    font-family: inherit;
+    font-weight: 400;
+    letter-spacing: -0.005em;
+    caret-color: var(--accent-tint);
+  }
+  .input-row input::placeholder {
+    color: var(--ink-faint);
+    font-weight: 400;
+  }
+  .input-row .clearable {
+    font-family: var(--font-mono);
+    font-size: var(--fs-kbd);
+    color: var(--kbd-ink);
+    background: var(--kbd-bg);
+    border-radius: 4px;
+    padding: 2px 6px;
+    user-select: none;
+    cursor: default;
+  }
+
+  /* — list — */
+  .list-wrap {
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+    padding: 6px 0;
+  }
+  .list-wrap::-webkit-scrollbar { width: 8px; }
+  .list-wrap::-webkit-scrollbar-thumb {
+    background: var(--hairline-strong);
+    border-radius: 4px;
+  }
+  ul.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-row);
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: var(--pad-row);
+    min-height: var(--row-min-h);
+    margin: 0 6px;
+    border-radius: 8px;
+    cursor: default;
+    user-select: none;
+  }
+  .row:hover { background: var(--row-hover); }
+  .row.selected {
+    background: var(--row-select);
+  }
+  .row.selected .row-title { color: var(--row-select-ink); }
+  .row.selected .row-meta  { color: var(--ink-muted); }
+
+  .row-icon {
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    display: grid; place-items: center;
+    background: var(--tag-bg);
+    color: var(--ink-muted);
+    border: 1px solid var(--tag-border);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .row-icon[data-kind="claude"]  { color: #e88a4d; background: color-mix(in oklch, #e88a4d 18%, transparent); border-color: color-mix(in oklch, #e88a4d 30%, transparent);}
+  .row-icon[data-kind="codex"]   { color: #6fd06f; background: color-mix(in oklch, #6fd06f 18%, transparent); border-color: color-mix(in oklch, #6fd06f 30%, transparent);}
+  .row-icon[data-kind="chatgpt"] { color: #59c1a5; background: color-mix(in oklch, #59c1a5 18%, transparent); border-color: color-mix(in oklch, #59c1a5 30%, transparent);}
+  .row-icon[data-kind="shared"]  { color: #b8a4ff; background: color-mix(in oklch, #b8a4ff 18%, transparent); border-color: color-mix(in oklch, #b8a4ff 30%, transparent);}
+  .row-icon[data-kind="writing"] { color: #ffd166; background: color-mix(in oklch, #ffd166 18%, transparent); border-color: color-mix(in oklch, #ffd166 30%, transparent);}
+
+  .row-body {
+    min-width: 0;
+    display: grid;
+    grid-template-rows: auto auto;
+    gap: 2px;
+  }
+  .row-title {
+    font-size: var(--fs-title);
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.005em;
+  }
+  .row-meta {
+    font-size: var(--fs-meta);
+    color: var(--ink-faint);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .row-meta .path {
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .row-meta .dot {
+    width: 3px; height: 3px;
+    border-radius: 50%;
+    background: var(--ink-faint);
+    opacity: 0.55;
+    flex: 0 0 3px;
+  }
+  .row-meta .tag {
+    background: var(--tag-bg);
+    color: var(--tag-ink);
+    border: 1px solid var(--tag-border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  .row-trail {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink-faint);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum";
+  }
+  .row-trail .kbd { opacity: 0; transition: opacity 120ms ease; }
+  .row-trail .row-kbd-edit kbd {
+    background: transparent;
+    border: 1px solid var(--hairline-strong);
+    color: var(--ink-faint);
+  }
+  .row.selected .row-trail .kbd { opacity: 1; }
+
+  .match {
+    color: var(--accent-ink);
+    font-weight: 600;
+    background: var(--match-bg);
+    border-radius: 2px;
+    padding: 0 1px;
+  }
+  [data-theme="light"] .match { color: color-mix(in oklch, var(--accent) 70%, black 30%); }
+
+  /* — status row — */
+  .status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--pad-status);
+    border-top: 1px solid var(--hairline);
+    font-size: var(--fs-hint);
+    color: var(--ink-muted);
+    background: linear-gradient(180deg, transparent, color-mix(in oklch, var(--surface-solid) 50%, transparent));
+  }
+  .status .left { display: flex; align-items: center; gap: 10px; }
+  .status .right { display: flex; align-items: center; gap: 14px; }
+  .status .count { font-family: var(--font-mono); font-feature-settings: "tnum"; }
+  .status .brand {
+    font-size: 11px;
+    color: var(--ink-faint);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .status .brand-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink-faint);
+  }
+  .status .brand-mark .dot-accent {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent-tint);
+    box-shadow: 0 0 8px var(--accent-tint);
+  }
+
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-kbd);
+    color: var(--kbd-ink);
+  }
+  .kbd kbd {
+    background: var(--kbd-bg);
+    color: var(--kbd-ink);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font: inherit;
+    border: 0;
+    min-width: 16px;
+    text-align: center;
+    display: inline-block;
+  }
+
+  /* — alt states — */
+  .empty, .no-results, .perm, .first-run {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    text-align: center;
+    color: var(--ink-muted);
+    padding: 24px 28px;
+  }
+  .empty .big, .no-results .big, .perm .big, .first-run .big {
+    color: var(--ink);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .empty .sub, .no-results .sub, .perm .sub, .first-run .sub {
+    color: var(--ink-muted);
+    font-size: 12.5px;
+    line-height: 1.45;
+    max-width: 380px;
+    margin: 0 auto;
+  }
+  .empty .hint-list, .first-run .hint-list {
+    margin-top: 14px;
+    display: grid;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+  .empty .hint-list .row-h {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    align-items: center;
+    padding: 4px 0;
+  }
+  .perm .badge, .first-run .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: color-mix(in oklch, var(--accent-tint) 18%, transparent);
+    color: var(--accent-ink);
+    border: 1px solid color-mix(in oklch, var(--accent-tint) 35%, transparent);
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .perm .cta, .first-run .cta {
+    margin-top: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent);
+    color: var(--accent-on);
+    border: 0;
+    padding: 8px 14px;
+    border-radius: 7px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.18) inset, 0 6px 16px -6px color-mix(in oklch, var(--accent) 60%, transparent);
+  }
+  .perm .cta:hover, .first-run .cta:hover { background: var(--accent-strong); filter: none; }
+  .perm .cta:focus-visible, .first-run .cta:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .no-results .glyph-x {
+    width: 28px; height: 28px;
+    color: var(--ink-faint);
+    margin-bottom: 8px;
+  }
+
+  /* ---------- Tweaks panel ---------- */
+  .tweaks {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    width: 268px;
+    background: rgba(20,20,24,0.86);
+    color: #e8e8ef;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 12px 14px 14px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    box-shadow: 0 16px 40px -12px rgba(0,0,0,0.55);
+    z-index: 10;
+  }
+  body[data-bg="light-wall"] .tweaks {
+    background: rgba(255,255,255,0.88);
+    color: #1a1a22;
+    border-color: rgba(0,0,0,0.08);
+  }
+  .tweaks .title {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8a8a9a;
+    margin-bottom: 10px;
+    font-weight: 700;
+  }
+  .tweaks .title .toggle {
+    background: transparent; border: 0; cursor: pointer;
+    color: inherit; font: inherit;
+    opacity: 0.7;
+  }
+  .tweaks .group { display: grid; gap: 6px; margin-bottom: 10px; }
+  .tweaks label { display: block; color: #a4a4b4; font-size: 11px; }
+  body[data-bg="light-wall"] .tweaks label { color: #5a5a6a; }
+  .tweaks .segmented {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    background: rgba(255,255,255,0.06);
+    border-radius: 7px;
+    padding: 2px;
+    gap: 2px;
+  }
+  body[data-bg="light-wall"] .tweaks .segmented { background: rgba(0,0,0,0.06); }
+  .tweaks .segmented button {
+    background: transparent; border: 0;
+    color: inherit;
+    font: inherit;
+    padding: 5px 6px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .tweaks .segmented button.active {
+    background: rgba(255,255,255,0.12);
+    color: white;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset;
+  }
+  body[data-bg="light-wall"] .tweaks .segmented button.active {
+    background: white;
+    color: #111;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+  .tweaks .accents { display: flex; gap: 6px; }
+  .tweaks .accents button {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+  }
+  .tweaks .accents button.active {
+    border-color: rgba(255,255,255,0.65);
+  }
+  body[data-bg="light-wall"] .tweaks .accents button.active {
+    border-color: rgba(0,0,0,0.55);
+  }
+
+  .tweaks.collapsed .group { display: none; }
+  .tweaks.collapsed { padding: 10px 12px; }
+
+  /* helper */
+  .visually-hidden {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+  }
+
+  /* toast — sits below the overlay; outside the artifact in the real app this is a no-op (the overlay just hides) */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 80px;
+    transform: translate(-50%, 8px);
+    background: rgba(20,20,24,0.92);
+    color: #eaeaef;
+    border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 160ms ease, transform 160ms ease;
+    z-index: 5;
+    box-shadow: 0 14px 30px -10px rgba(0,0,0,0.55);
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  body[data-bg="light-wall"] .toast {
+    background: rgba(255,255,255,0.95);
+    color: #1a1a22;
+    border-color: rgba(0,0,0,0.08);
+  }
+</style>
+</head>
+<body data-bg="dark-wall">
+
+<div class="stage">
+  <header class="header">
+    <h1>prompt-launcher <span>· v1 overlay · 600×400</span></h1>
+    <div class="hint">Hotkey: <span style="font-family:var(--font-mono)">⌘⇧Space</span> · Esc to dismiss · ↵ to paste</div>
+  </header>
+
+  <div class="center">
+    <div id="overlay" class="overlay" data-theme="dark" data-density="cozy" role="dialog" aria-label="Prompt launcher">
+      <!-- input row -->
+      <div class="input-row">
+        <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+        </svg>
+        <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="Search prompts…" />
+        <span class="clearable" id="esc-pill">esc</span>
+      </div>
+
+      <!-- list / state region -->
+      <div class="list-wrap" id="body-region">
+        <ul class="list" id="list">
+          <!-- populated by JS -->
+        </ul>
+      </div>
+
+      <!-- status row -->
+      <div class="status">
+        <div class="left">
+          <span class="brand-mark"><span class="dot-accent"></span><span class="brand">prompt-launcher</span></span>
+        </div>
+        <div class="right">
+          <span class="kbd"><kbd>↑</kbd><kbd>↓</kbd>&nbsp;navigate</span>
+          <span class="kbd"><kbd>↵</kbd>&nbsp;paste</span>
+          <span class="kbd"><kbd>⌘</kbd><kbd>E</kbd>&nbsp;edit</span>
+          <span class="kbd"><kbd>esc</kbd>&nbsp;dismiss</span>
+          <span class="count" id="count">— results</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Single-file design artifact · macOS-only v1 · plan: docs/plans/v1.md
+  </div>
+</div>
+
+<!-- Tweaks panel -->
+<aside class="tweaks" id="tweaks" aria-label="Design tweaks">
+  <div class="title">
+    <span>Tweaks</span>
+    <button class="toggle" id="tweaks-toggle" aria-label="Collapse">−</button>
+  </div>
+
+  <div class="group">
+    <label>State</label>
+    <div class="segmented" data-tweak="state">
+      <button data-v="default">Default</button>
+      <button data-v="query">Querying</button>
+      <button data-v="empty">Empty</button>
+      <button data-v="no-results">No results</button>
+      <button data-v="perm">Permission</button>
+      <button data-v="first-run">First-run</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <label>Theme</label>
+    <div class="segmented" data-tweak="theme">
+      <button data-v="dark">Dark</button>
+      <button data-v="light">Light</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <label>Density</label>
+    <div class="segmented" data-tweak="density">
+      <button data-v="cozy">Cozy</button>
+      <button data-v="compact">Compact</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <label>Backdrop</label>
+    <div class="segmented" data-tweak="bg">
+      <button data-v="dark-wall">Dark wall</button>
+      <button data-v="light-wall">Light wall</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <label>Accent</label>
+    <div class="accents" data-tweak="accent">
+      <button data-v="#5b8cff" style="background:#5b8cff" title="Blue (default)"></button>
+      <button data-v="#a78bfa" style="background:#a78bfa" title="Violet"></button>
+      <button data-v="#ff7a59" style="background:#ff7a59" title="Coral"></button>
+      <button data-v="#34c97a" style="background:#34c97a" title="Green"></button>
+      <button data-v="#ffd166" style="background:#ffd166" title="Amber"></button>
+    </div>
+  </div>
+</aside>
+
+<script>
+(() => {
+  // ---------- Sample prompt corpus (modeled on docs/plans/v1.md frontmatter shape) ----------
+  // last_used is bumped on Enter (Phase 5). Newer = higher recency bonus.
+  // tags == subdirectory in ~/.prompts/.
+  const PROMPTS = [
+    { id: "claude/code-review.md",       title: "Code review (strict, security-aware)",        path: "claude/code-review.md",       tags: ["claude","code-review"], kind:"claude",   last_used: "2026-05-26T08:14" },
+    { id: "claude/explain-this-error.md",title: "Explain this error & propose a fix",          path: "claude/explain-this-error.md",tags: ["claude","debug"],        kind:"claude",   last_used: "2026-05-25T19:02" },
+    { id: "shared/quick-summarize.md",   title: "Quick summarize · 5 bullets · no fluff",      path: "shared/quick-summarize.md",   tags: ["shared","summarize"],   kind:"shared",   last_used: "2026-05-26T07:51" },
+    { id: "codex/refactor-rust.md",      title: "Refactor Rust for readability (preserve API)",path: "codex/refactor-rust.md",      tags: ["codex","rust","refactor"],kind:"codex",   last_used: "2026-05-24T15:30" },
+    { id: "chatgpt/cold-email-fix.md",   title: "Tighten this cold email — kill AI-isms",      path: "chatgpt/cold-email-fix.md",   tags: ["chatgpt","writing"],    kind:"chatgpt",  last_used: "2026-05-23T11:22" },
+    { id: "claude/plan-a-feature.md",    title: "Plan a feature — bite-sized tasks + code refs",path:"claude/plan-a-feature.md",    tags: ["claude","planning"],    kind:"claude",   last_used: "2026-05-22T16:08" },
+    { id: "shared/socratic-tutor.md",    title: "Socratic tutor on a topic I name",            path: "shared/socratic-tutor.md",    tags: ["shared","learning"],    kind:"shared",   last_used: "2026-05-20T09:44" },
+    { id: "writing/blog-post-outline.md",title: "Blog post outline — narrative-first",         path: "writing/blog-post-outline.md",tags: ["writing","outline"],    kind:"writing",  last_used: "2026-05-18T10:01" },
+    { id: "codex/write-test-first.md",   title: "Write a failing test for this behavior",      path: "codex/write-test-first.md",   tags: ["codex","tdd"],          kind:"codex",   last_used: "2026-05-15T14:11" },
+    { id: "shared/translate-en-de.md",   title: "Translate EN → DE, preserve tone",            path: "shared/translate-en-de.md",   tags: ["shared","translate"],   kind:"shared",   last_used: "2026-05-12T09:30" },
+    { id: "claude/repro-a-bug.md",       title: "Minimal repro for this bug",                  path: "claude/repro-a-bug.md",       tags: ["claude","debug"],        kind:"claude",   last_used: "2026-05-10T18:25" },
+  ];
+
+  // ---------- Tiny fuzzy scoring (illustrative — real impl uses nucleo-matcher) ----------
+  // Score blend mirrors the search crate: title 3x, tags 2x, body 1x, plus recency bonus.
+  function score(q, p) {
+    if (!q) return recencyBonus(p);
+    const ql = q.toLowerCase();
+    const tlow = p.title.toLowerCase();
+    const tags = p.tags.join(" ").toLowerCase();
+
+    const titleHit = subseq(ql, tlow);
+    const tagHit   = subseq(ql, tags);
+    if (titleHit == null && tagHit == null) return -1;
+
+    let s = 0;
+    if (titleHit != null) s += 1000 - titleHit.spread + (titleHit.start === 0 ? 200 : 0) + titleHit.boundary * 80;
+    if (tagHit   != null) s += 600  - tagHit.spread;
+    s += recencyBonus(p);
+    return s;
+  }
+
+  function recencyBonus(p) {
+    const days = (Date.now() - Date.parse(p.last_used)) / 86400000;
+    return 100 * Math.exp(-days / 14);
+  }
+
+  // subsequence match; returns {indices, spread, start, boundary} or null
+  function subseq(needle, hay) {
+    const idx = [];
+    let h = 0;
+    let boundary = 0;
+    for (const ch of needle) {
+      const at = hay.indexOf(ch, h);
+      if (at === -1) return null;
+      if (at === 0 || /[\s\-_./]/.test(hay[at-1])) boundary++;
+      idx.push(at);
+      h = at + 1;
+    }
+    return { indices: idx, spread: idx[idx.length-1] - idx[0], start: idx[0], boundary };
+  }
+
+  function highlight(title, q) {
+    if (!q) return escapeHtml(title);
+    const ql = q.toLowerCase();
+    const tlow = title.toLowerCase();
+    const m = subseq(ql, tlow);
+    if (!m) return escapeHtml(title);
+    const set = new Set(m.indices);
+    let out = "";
+    for (let i = 0; i < title.length; i++) {
+      const ch = escapeHtml(title[i]);
+      out += set.has(i) ? `<span class="match">${ch}</span>` : ch;
+    }
+    return out;
+  }
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" })[c]);
+  }
+
+  // ---------- Render ----------
+  const $list   = document.getElementById("list");
+  const $body   = document.getElementById("body-region");
+  const $q      = document.getElementById("q");
+  const $count  = document.getElementById("count");
+  const $overlay= document.getElementById("overlay");
+
+  let state = {
+    mode: "default", // default | query | empty | no-results | perm | first-run
+    query: "",
+    sel: 0,
+    theme: "dark",
+    density: "cozy",
+    bg: "dark-wall",
+    accent: "#5b8cff",
+  };
+
+  function rank(q) {
+    return PROMPTS
+      .map(p => ({ p, s: score(q, p) }))
+      .filter(x => x.s >= 0)
+      .sort((a, b) => b.s - a.s || a.p.id.localeCompare(b.p.id))
+      .map(x => x.p);
+  }
+
+  function fmtRelative(iso) {
+    const d = Date.parse(iso);
+    const diff = Date.now() - d;
+    const m = diff / 60000;
+    if (m < 60)        return Math.max(1, Math.round(m)) + "m ago";
+    const h = m / 60;
+    if (h < 24)        return Math.round(h) + "h ago";
+    const days = h / 24;
+    if (days < 7)      return Math.round(days) + "d ago";
+    if (days < 30)     return Math.round(days/7) + "w ago";
+    return Math.round(days/30) + "mo ago";
+  }
+
+  function render() {
+    // Apply tweaks first
+    $overlay.dataset.theme = state.theme;
+    $overlay.dataset.density = state.density;
+    document.body.dataset.bg = state.bg;
+    document.documentElement.style.setProperty("--accent", state.accent);
+    document.documentElement.style.setProperty("--accent-tint", state.accent);
+
+    // States that replace the list region
+    if (state.mode === "empty")     return renderEmpty();
+    if (state.mode === "no-results")return renderNoResults();
+    if (state.mode === "perm")      return renderPerm();
+    if (state.mode === "first-run") return renderFirstRun();
+
+    // Normal list (default or query)
+    const results = rank(state.query);
+    if (state.query && results.length === 0) return renderNoResults();
+    if (results.length === 0) return renderEmpty();
+
+    state.sel = Math.min(state.sel, results.length - 1);
+    $list.innerHTML = results.map((p, i) => row(p, i === state.sel, state.query)).join("");
+    if ($body.firstElementChild !== $list) {
+      $body.innerHTML = "";
+      $body.appendChild($list);
+    }
+    $count.textContent = `${results.length} ${results.length === 1 ? "result" : "results"}`;
+    // ensure selected row is visible
+    const el = $list.children[state.sel];
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }
+
+  function row(p, selected, q) {
+    const icon = p.kind === "claude"  ? "C"
+              : p.kind === "codex"    ? "Cx"
+              : p.kind === "chatgpt"  ? "Gpt"
+              : p.kind === "writing"  ? "W"
+              : "·";
+    return `
+      <li class="row ${selected ? "selected" : ""}" data-id="${escapeHtml(p.id)}">
+        <div class="row-icon" data-kind="${p.kind}">${icon}</div>
+        <div class="row-body">
+          <div class="row-title">${highlight(p.title, q)}</div>
+          <div class="row-meta">
+            <span class="path">${escapeHtml(p.path)}</span>
+            <span class="dot"></span>
+            ${p.tags.slice(0,2).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("")}
+            <span class="dot"></span>
+            <span>${fmtRelative(p.last_used)}</span>
+          </div>
+        </div>
+        <div class="row-trail">
+          <span class="kbd row-kbd-edit" title="Edit"><kbd>⌘E</kbd></span>
+          <span class="kbd row-kbd-paste"><kbd>↵</kbd></span>
+        </div>
+      </li>
+    `;
+  }
+
+  function renderEmpty() {
+    $body.innerHTML = `
+      <div class="empty">
+        <div>
+          <div class="big">No prompts yet</div>
+          <div class="sub">Drop markdown files into <span style="font-family:var(--font-mono);color:var(--ink)">~/.prompts/</span>. One file per prompt. Subdirectory becomes a tag.</div>
+          <div class="hint-list">
+            <div class="row-h"><span class="kbd"><kbd>⌘</kbd><kbd>R</kbd></span><span>Reload prompts</span></div>
+            <div class="row-h"><span class="kbd"><kbd>⌘</kbd><kbd>,</kbd></span><span>Open prompts folder</span></div>
+          </div>
+        </div>
+      </div>`;
+    $count.textContent = "0 results";
+  }
+
+  function renderNoResults() {
+    $body.innerHTML = `
+      <div class="no-results">
+        <div>
+          <svg class="glyph-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="m8 8 6 6M14 8l-6 6"/>
+          </svg>
+          <div class="big">No matches for "${escapeHtml(state.query)}"</div>
+          <div class="sub">Try fewer characters, or add a new prompt with that title in <span style="font-family:var(--font-mono);color:var(--ink)">~/.prompts/</span>.</div>
+        </div>
+      </div>`;
+    $count.textContent = "0 results";
+  }
+
+  function renderPerm() {
+    $body.innerHTML = `
+      <div class="perm">
+        <div>
+          <span class="badge">Setup · Accessibility</span>
+          <div class="big">prompt-launcher needs Accessibility access</div>
+          <div class="sub">macOS requires Accessibility permission so the launcher can paste your selected prompt at the cursor in any app. Nothing leaves your machine.</div>
+          <button class="cta" id="open-prefs">
+            Open System Settings →
+          </button>
+        </div>
+      </div>`;
+    $count.textContent = "setup required";
+  }
+
+  function renderFirstRun() {
+    $body.innerHTML = `
+      <div class="first-run">
+        <div>
+          <span class="badge">Welcome</span>
+          <div class="big">Let's create your prompt library</div>
+          <div class="sub">We'll create <span style="font-family:var(--font-mono);color:var(--ink)">~/.prompts/</span> with three example prompts. Add, edit, or delete files freely — changes hot-reload.</div>
+          <button class="cta" id="bootstrap">
+            Create ~/.prompts/ with examples
+          </button>
+          <div class="hint-list" style="margin-top:18px;text-align:left;">
+            <div class="row-h"><span class="kbd"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd></span><span>Open launcher from any app</span></div>
+            <div class="row-h"><span class="kbd"><kbd>↑</kbd><kbd>↓</kbd></span><span>Navigate results</span></div>
+            <div class="row-h"><span class="kbd"><kbd>↵</kbd></span><span>Paste selected prompt at cursor</span></div>
+          </div>
+        </div>
+      </div>`;
+    $count.textContent = "first run";
+  }
+
+  // ---------- Input + keyboard ----------
+  let debounceT;
+  $q.addEventListener("input", () => {
+    clearTimeout(debounceT);
+    debounceT = setTimeout(() => {
+      state.query = $q.value.trim();
+      state.mode = state.query ? "query" : "default";
+      state.sel = 0;
+      render();
+    }, 50);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    // Don't fight typing in inputs
+    const inOverlay = ["default","query"].includes(state.mode);
+    if (!inOverlay) return;
+    const cmd = e.metaKey || e.ctrlKey;
+    if (e.key === "ArrowDown") { state.sel = Math.min(state.sel + 1, rank(state.query).length - 1); render(); e.preventDefault(); }
+    else if (e.key === "ArrowUp") { state.sel = Math.max(state.sel - 1, 0); render(); e.preventDefault(); }
+    else if (e.key === "Enter" && cmd) {
+      const r = rank(state.query)[state.sel];
+      if (r) editPrompt(r);
+      e.preventDefault();
+    }
+    else if ((e.key === "e" || e.key === "E") && cmd) {
+      const r = rank(state.query)[state.sel];
+      if (r) editPrompt(r);
+      e.preventDefault();
+    }
+    else if (e.key === "Enter") {
+      const r = rank(state.query)[state.sel];
+      if (r) pasteAndDismiss(r);
+      e.preventDefault();
+    } else if (e.key === "Escape") {
+      $q.value = "";
+      state.query = "";
+      state.mode = "default";
+      state.sel = 0;
+      render();
+      e.preventDefault();
+    }
+  });
+
+  // In the real app: capture frontmost PID before show → on Enter, hide overlay FIRST,
+  // then restore_focus(pid) → paste_text(body) → touch(id). The UI here mirrors the
+  // overlay-hides-immediately part so the demo matches real-app behavior.
+  function pasteAndDismiss(prompt) {
+    if (state.closing) return;
+    state.closing = true;
+    $overlay.classList.add("closing");
+    setTimeout(() => {
+      // overlay is "hidden" — in real app this is when paste fires
+      $overlay.classList.remove("closing");
+      // banner outside the overlay so the demo stays observable
+      showToast(`pasted → ${prompt.path}`);
+      // reset: clear query, recency-sort bumps the touched prompt to the top
+      prompt.last_used = new Date().toISOString();
+      $q.value = "";
+      state.query = "";
+      state.mode = "default";
+      state.sel = 0;
+      state.closing = false;
+      // re-appear after a beat so reviewers can keep flipping through states
+      setTimeout(() => { render(); $q.focus(); }, 600);
+    }, 110);
+  }
+
+  function editPrompt(prompt) {
+    // In the real app: spawn `$EDITOR ~/.prompts/<path>` (or `open` for default app), then hide overlay.
+    if (state.closing) return;
+    state.closing = true;
+    $overlay.classList.add("closing");
+    setTimeout(() => {
+      $overlay.classList.remove("closing");
+      showToast(`opened in editor → ~/.prompts/${prompt.path}`);
+      state.closing = false;
+      setTimeout(() => { render(); $q.focus(); }, 600);
+    }, 110);
+  }
+
+  function showToast(msg) {
+    let t = document.getElementById("toast");
+    if (!t) {
+      t = document.createElement("div");
+      t.id = "toast";
+      t.className = "toast";
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(showToast._h);
+    showToast._h = setTimeout(() => t.classList.remove("show"), 1400);
+  }
+
+  // ---------- Tweaks wiring ----------
+  document.querySelectorAll(".tweaks .segmented").forEach(group => {
+    const tweak = group.dataset.tweak;
+    group.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        group.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        state[tweak] = btn.dataset.v;
+        if (tweak === "state") {
+          state.mode = btn.dataset.v === "query" ? "query" : btn.dataset.v;
+          if (state.mode === "query") {
+            $q.value = "code rev";
+            state.query = "code rev";
+          } else if (["default","empty","no-results","perm","first-run"].includes(state.mode)) {
+            if (state.mode !== "no-results") { $q.value = ""; state.query = ""; }
+            if (state.mode === "no-results") { $q.value = "asdfqwer"; state.query = "asdfqwer"; }
+          }
+          state.sel = 0;
+        }
+        // persist
+        try { localStorage.setItem("pl-tweaks", JSON.stringify(state)); } catch {}
+        render();
+      });
+    });
+  });
+  document.querySelectorAll(".tweaks .accents button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tweaks .accents button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      state.accent = btn.dataset.v;
+      try { localStorage.setItem("pl-tweaks", JSON.stringify(state)); } catch {}
+      render();
+    });
+  });
+
+  // collapse
+  const $tweaks = document.getElementById("tweaks");
+  document.getElementById("tweaks-toggle").addEventListener("click", () => {
+    $tweaks.classList.toggle("collapsed");
+    document.getElementById("tweaks-toggle").textContent = $tweaks.classList.contains("collapsed") ? "+" : "−";
+  });
+
+  // ---------- Init: restore persisted tweaks, mark active buttons ----------
+  try {
+    const saved = JSON.parse(localStorage.getItem("pl-tweaks") || "null");
+    if (saved) Object.assign(state, saved);
+  } catch {}
+
+  function markActive() {
+    document.querySelectorAll(".tweaks .segmented").forEach(group => {
+      const tweak = group.dataset.tweak;
+      group.querySelectorAll("button").forEach(b => {
+        const want = tweak === "state" ? state.mode : state[tweak];
+        b.classList.toggle("active", b.dataset.v === want);
+      });
+    });
+    document.querySelectorAll(".tweaks .accents button").forEach(b => {
+      b.classList.toggle("active", b.dataset.v === state.accent);
+    });
+  }
+  markActive();
+  if (state.mode === "no-results") { $q.value = "asdfqwer"; state.query = "asdfqwer"; }
+  else if (state.mode === "query") { $q.value = state.query || "code rev"; state.query = $q.value; }
+  render();
+  // focus input only in interactive modes
+  if (["default","query"].includes(state.mode)) $q.focus();
+})();
+</script>
+</body>
+</html>

@@ -3,6 +3,7 @@
 ## Authoritative sources
 
 - **Implementation plan:** `docs/plans/v1.md` (in-repo, canonical). Also mirrored at `~/.hermes/plans/2026-05-26-prompt-launcher-v1.md` on the controller machine where this was greenlit.
+- **Visual design spec:** `docs/DESIGN.md` (in-repo, canonical) — Google DESIGN.md format. Tokens, components, contrast rules. Reference HTML at `~/code/prompt-launcher-design/Prompt Launcher Overlay.html` (controller machine) is a tweakable visual proof; the spec file is the binding contract. Phase 4 UI work MUST consume `docs/DESIGN.md`. Lint with `npx -y @google/design.md lint docs/DESIGN.md` after any change; CI gate is "zero warnings" because WCAG warnings are the load-bearing reason this file exists.
 - **Dossier:** `~/.hermes/ideas/research/007-prompt-library-launcher.md` (controller machine only — paste into your agent's context if needed).
 - **Spike README:** `~/spikes/prompt-launcher-core/001-hotkey-paste-loop/README.md` (lives on shidil's macOS dev box; a mirror also exists on the controller machine).
 - **Backlog entry:** `~/.hermes/ideas/backlog.md` #007 YAML (controller machine — contains `stack_choice`, `macos_integration_shape`, `known_gotcha:` fields).

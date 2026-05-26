@@ -1,0 +1,125 @@
+{
+  "theme": {
+    "extend": {
+      "colors": {
+        "primary": "#3d6fe8",
+        "primary-strong": "#2f5bd0",
+        "primary-on": "#ffffff",
+        "primary-tint": "#5b8cff",
+        "surface": "#222226",
+        "surface-raised": "#2b2b2f",
+        "surface-selected": "#2f3956",
+        "surface-tag": "#2f2f33",
+        "surface-match": "#34446b",
+        "ink": "#f6f6f6",
+        "ink-muted": "#ababad",
+        "ink-faint": "#7f7f81",
+        "hairline": "#343437",
+        "hairline-strong": "#414144",
+        "kind-claude": "#e88a4d",
+        "kind-codex": "#6fd06f",
+        "kind-chatgpt": "#59c1a5",
+        "kind-shared": "#b8a4ff",
+        "kind-writing": "#ffd166"
+      },
+      "fontFamily": {
+        "display": [
+          "-apple-system, SF Pro Display, Inter, sans-serif"
+        ],
+        "input": [
+          "-apple-system, SF Pro Text, Inter, sans-serif"
+        ],
+        "body": [
+          "-apple-system, SF Pro Text, Inter, sans-serif"
+        ],
+        "meta": [
+          "-apple-system, SF Pro Text, Inter, sans-serif"
+        ],
+        "hint": [
+          "-apple-system, SF Pro Text, Inter, sans-serif"
+        ],
+        "mono": [
+          "ui-monospace, SF Mono, JetBrains Mono, Menlo, monospace"
+        ],
+        "tag": [
+          "-apple-system, SF Pro Text, Inter, sans-serif"
+        ],
+        "brand": [
+          "-apple-system, SF Pro Text, Inter, sans-serif"
+        ]
+      },
+      "fontSize": {
+        "display": [
+          "15px",
+          {
+            "letterSpacing": "-0.01em",
+            "fontWeight": "600"
+          }
+        ],
+        "input": [
+          "19px",
+          {
+            "letterSpacing": "-0.005em",
+            "fontWeight": "400"
+          }
+        ],
+        "body": [
+          "14px",
+          {
+            "letterSpacing": "-0.005em",
+            "fontWeight": "500"
+          }
+        ],
+        "meta": [
+          "12px",
+          {
+            "fontWeight": "400"
+          }
+        ],
+        "hint": [
+          "12px",
+          {
+            "fontWeight": "400"
+          }
+        ],
+        "mono": [
+          "11px",
+          {
+            "fontWeight": "500"
+          }
+        ],
+        "tag": [
+          "10.5px",
+          {
+            "letterSpacing": "0.01em",
+            "fontWeight": "500"
+          }
+        ],
+        "brand": [
+          "11px",
+          {
+            "letterSpacing": "0.04em",
+            "fontWeight": "700"
+          }
+        ]
+      },
+      "borderRadius": {
+        "xs": "2px",
+        "sm": "4px",
+        "md": "7px",
+        "lg": "8px",
+        "xl": "14px"
+      },
+      "spacing": {
+        "xs": "4px",
+        "sm": "6px",
+        "md": "8px",
+        "lg": "12px",
+        "xl": "14px",
+        "xxl": "16px",
+        "xxxl": "18px",
+        "xxxxl": "22px"
+      }
+    }
+  }
+}
