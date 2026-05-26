@@ -1,1 +1,4 @@
-//! Shared types: Prompt, Frontmatter, Context, and the PromptAction trait. Phase 2 populates.
+//! Shared types for prompt-launcher v1 — `Prompt` and `Frontmatter`.
+
+mod prompt;
+pub use prompt::{Frontmatter, Prompt};
