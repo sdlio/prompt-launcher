@@ -1,1 +1,7 @@
-//! FsPromptStore: load ~/.prompts/*.md, parse frontmatter, hot-reload via notify. Phase 2 populates.
+//! Filesystem-backed prompt store: load ~/.prompts/*.md, atomic touch, hot-reload.
+
+mod fs_store;
+mod parser;
+
+pub use app_core::{Frontmatter, Prompt};
+pub use fs_store::FsPromptStore;
