@@ -1,10 +1,19 @@
 [package]
 name = "search"
-version = "0.0.0"
+version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 
 [dependencies]
-# Pinned in Phase 1+.
+app-core = { path = "../app-core" }
+prompt-store = { path = "../prompt-store" }
+nucleo-matcher = "0.3"
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1"
+
+[dev-dependencies]
+app-core = { path = "../app-core" }
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "5"
