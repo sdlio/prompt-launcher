@@ -87,16 +87,20 @@ impl Search {
     }
 }
 
-/// Order two hits by `last_used` descending; `None` sorts last.
+/// Order two hits by `last_used` descending; `None` sorts last. Ties (including
+/// two `None`s) are broken by `prompt.id` ascending so the ordering is fully
+/// deterministic — matters for tests, snapshot comparisons, and UI stability
+/// when nothing has been touched yet.
 fn cmp_by_last_used(a: &SearchHit, b: &SearchHit) -> std::cmp::Ordering {
     let a_ts = a.prompt.frontmatter.last_used;
     let b_ts = b.prompt.frontmatter.last_used;
-    match (b_ts, a_ts) {
+    let primary = match (b_ts, a_ts) {
         (Some(bt), Some(at)) => bt.cmp(&at),
         (Some(_), None) => std::cmp::Ordering::Greater, // a has None → after b
         (None, Some(_)) => std::cmp::Ordering::Less,    // b has None → after a
         (None, None) => std::cmp::Ordering::Equal,
-    }
+    };
+    primary.then_with(|| a.prompt.id.cmp(&b.prompt.id))
 }
 
 fn index_prompt(prompt: Prompt) -> IndexedPrompt {

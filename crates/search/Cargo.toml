@@ -8,12 +8,13 @@ authors.workspace = true
 
 [dependencies]
 app-core = { path = "../app-core" }
-prompt-store = { path = "../prompt-store" }
 nucleo-matcher = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
-anyhow = "1"
 
 [dev-dependencies]
-app-core = { path = "../app-core" }
-chrono = { version = "0.4", features = ["serde"] }
+# prompt-store + anyhow + dirs are only needed by examples/smoke.rs.
+# Keeping them out of prod deps so downstream consumers don't pull in the
+# fs/notify stack (prompt-store) or anyhow when using the search lib alone.
+prompt-store = { path = "../prompt-store" }
+anyhow = "1"
 dirs = "5"

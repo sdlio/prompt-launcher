@@ -95,3 +95,22 @@ fn update_replaces_corpus() {
     let hits = search.query("");
     assert_eq!(hits.len(), 2);
 }
+
+
+#[test]
+fn empty_query_ties_break_by_id_for_deterministic_ordering() {
+    // Two prompts both with last_used = None must sort in a fully deterministic
+    // way; the cmp_by_last_used tiebreaker is `id` ascending.
+    let prompts = vec![
+        mk_prompt("zzz", "Z prompt", &[], "body", None),
+        mk_prompt("aaa", "A prompt", &[], "body", None),
+        mk_prompt("mmm", "M prompt", &[], "body", None),
+    ];
+    let search = Search::new(prompts);
+    let hits = search.query("");
+    assert_eq!(hits.len(), 3);
+    // Insertion order was zzz, aaa, mmm. Deterministic id-ascending order is aaa, mmm, zzz.
+    assert_eq!(hits[0].prompt.id, "aaa");
+    assert_eq!(hits[1].prompt.id, "mmm");
+    assert_eq!(hits[2].prompt.id, "zzz");
+}
