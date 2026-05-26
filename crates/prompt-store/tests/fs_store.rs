@@ -141,3 +141,33 @@ fn watch_coalesces_burst_into_single_event() {
     }
     assert!(extras <= 1, "expected ≤2 events total, got {}", extras + 1);
 }
+
+
+#[test]
+fn touch_does_not_fire_reloaded_event() {
+    // Regression for the spurious-Reloaded bug: writing the tmp sibling during a
+    // `touch()` used to land inside the watched root with the same `.md` extension,
+    // tripping `Event::Reloaded` for every silent last_used bump. The fix is a
+    // hidden `.<name>.tmp` filename plus an `event_is_relevant` filter in the
+    // debounce loop. This test pins the post-fix behavior: a touch produces zero
+    // (or, on heavily loaded CI, at most one debounced) consumer events.
+    let dir = TempDir::new().unwrap();
+    write_prompt(dir.path(), "p.md", "---\ntitle: P\n---\nbody\n");
+
+    let store = FsPromptStore::new(dir.path().to_path_buf()).unwrap();
+    let (tx, rx) = mpsc::channel();
+    let _handle = store.watch(tx).expect("watch ok");
+
+    // Let the watcher attach.
+    std::thread::sleep(Duration::from_millis(150));
+
+    let id = store.list()[0].id.clone();
+    store.touch(&id).expect("touch ok");
+
+    // Within a generous window the watcher should NOT have fired Reloaded.
+    let received = rx.recv_timeout(Duration::from_millis(600));
+    assert!(
+        received.is_err(),
+        "touch should not fire Reloaded, but got {received:?}"
+    );
+}

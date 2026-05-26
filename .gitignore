@@ -1,5 +1,4 @@
 /target/
-**/Cargo.lock
 .DS_Store
 .env*
 .idea/
@@ -9,3 +8,7 @@ src-tauri/target/
 src-tauri/gen/schemas/
 node_modules/
 dist/
+# Cargo.lock IS committed for this binary workspace (NOT a library) — see Cargo.toml
+# header note. This pins transitive dep MSRVs (notify-types, indexmap, getrandom)
+# to versions compatible with rustc 1.83; without it a clean clone resolves newer
+# editions and the build breaks.

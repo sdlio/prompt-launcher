@@ -1,3 +1,7 @@
+# prompt-launcher is a binary workspace — Cargo.lock IS committed (see .gitignore).
+# This pins transitive dep MSRVs so clean clones build cleanly on the workspace's
+# rustc 1.83 toolchain. If you upgrade rustc, `cargo update` and re-commit Cargo.lock.
+
 [workspace]
 members = ["app-tauri", "crates/*"]
 resolver = "2"
