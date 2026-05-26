@@ -2,12 +2,12 @@
 
 ## Authoritative sources
 
-- **Implementation plan:** `~/.hermes/plans/2026-05-26-prompt-launcher-v1.md`
-- **Dossier:** `~/.hermes/ideas/research/007-prompt-library-launcher.md`
-- **Spike README:** `~/spikes/prompt-launcher-core/001-hotkey-paste-loop/README.md`
-- **Backlog entry:** `~/.hermes/ideas/backlog.md` (#007 YAML — `stack_choice`, `macos_integration_shape`, all `known_gotcha:` fields)
+- **Implementation plan:** `docs/plans/v1.md` (in-repo, canonical). Also mirrored at `~/.hermes/plans/2026-05-26-prompt-launcher-v1.md` on the controller machine where this was greenlit.
+- **Dossier:** `~/.hermes/ideas/research/007-prompt-library-launcher.md` (controller machine only — paste into your agent's context if needed).
+- **Spike README:** `~/spikes/prompt-launcher-core/001-hotkey-paste-loop/README.md` (lives on shidil's macOS dev box; a mirror also exists on the controller machine).
+- **Backlog entry:** `~/.hermes/ideas/backlog.md` #007 YAML (controller machine — contains `stack_choice`, `macos_integration_shape`, `known_gotcha:` fields).
 
-Read these before touching code. The spike's `known_gotcha:` fields in the backlog YAML are mandatory reading.
+Read `docs/plans/v1.md` before touching code; the spike's `known_gotcha:` items are reproduced both in that plan and below ("Locked-in spike findings"). The plan is the canonical reference for phase shape, task structure, and verification gates.
 
 ## House rules
 

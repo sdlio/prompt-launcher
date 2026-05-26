@@ -2,7 +2,7 @@
 
 Spotlight-style prompt-library launcher for macOS. Global hotkey → fuzzy-search prompts → paste at cursor.
 
-**Status:** Phase 0 (scaffolding) · Greenlit 2026-05-26 · Plan: `~/.hermes/plans/2026-05-26-prompt-launcher-v1.md`
+**Status:** Phase 3 complete (loader + search). Phase 1 (Tauri + macos-shim port) is next. Plan: [`docs/plans/v1.md`](docs/plans/v1.md). Greenlit 2026-05-26.
 
 ## Wedge
 
@@ -33,14 +33,29 @@ You use LLM CLIs (Claude Code, ChatGPT, Codex) all day. You have ~50 prompts you
 
 ## Phases
 
-1. Tauri scaffold + spike port (`macos-shim`).
-2. `~/.prompts/` loader with hot-reload.
-3. `nucleo` search + CLI smoke binary.
-4. Webview UI.
-5. End-to-end paste flow.
-6. Accessibility onboarding + first-run.
-7. Timing harness + `<200ms` CI gate.
-8. Polish + signed `.app`.
+1. ⏳ Tauri scaffold + spike port (`macos-shim`). **Next — runs on macOS.**
+2. ✅ `~/.prompts/` loader with hot-reload. (commits d3475b6, 48368f7, 1c088cf, 0bee3ee)
+3. ✅ `nucleo-matcher` search + CLI smoke binary. (commits 0f70d7d, abf8bc1, b22ccfd)
+4. ⏳ Webview UI (vanilla TS + Vite).
+5. ⏳ End-to-end paste flow (capture → hide → restore → paste → touch).
+6. ⏳ Accessibility onboarding + first-run `~/.prompts/` bootstrap.
+7. ⏳ Timing harness + `<200ms` CI gate.
+8. ⏳ Polish + signed `.app`.
+
+See [`docs/plans/v1.md`](docs/plans/v1.md) for the full plan including exact file paths, code skeletons, verification gates, and forward-compat seams for v2 (Smithers-style agent actions, Linux/Wayland).
+
+## Resuming on a new machine
+
+If you've just cloned this repo and want to continue the build:
+
+1. Install Rust 1.83 (the `rust-toolchain.toml` will auto-select it if rustup is installed).
+2. `cargo build --workspace` — verifies the committed `Cargo.lock` resolves cleanly. Should compile all four lib crates plus the `prompt-launcher` bin stub.
+3. `cargo test --workspace` — should be 20 / 20 passing (2 app-core + 7 prompt-store + 4 search-unit + 7 search-integration).
+4. Read [`AGENTS.md`](AGENTS.md) for house rules + the locked-in spike findings (mandatory).
+5. Read [`docs/plans/v1.md`](docs/plans/v1.md). Find the first `⏳` phase. Pick up there.
+6. Phase 1 is the natural next; it requires macOS (the `macos-shim` crate links against `objc2-app-kit`, `enigo`, `arboard`, and the Tauri build needs to produce a `.app` bundle). Phases 4–8 are also macOS-only.
+
+If you're using an AI coding assistant (Claude Code, Codex, etc.) to drive the build, paste `AGENTS.md` + the relevant phase section from `docs/plans/v1.md` into the assistant's context. The plan was written for agent-driven execution.
 
 ## Why these choices
 
