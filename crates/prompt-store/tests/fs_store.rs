@@ -89,3 +89,55 @@ fn touch_unknown_id_returns_error() {
     let result = store.touch("does-not-exist.md");
     assert!(result.is_err());
 }
+
+use std::sync::mpsc;
+use std::time::Duration;
+
+#[test]
+fn watch_emits_reloaded_when_a_new_file_lands() {
+    let dir = TempDir::new().unwrap();
+    write_prompt(dir.path(), "initial.md", "---\ntitle: i\n---\nx\n");
+
+    let store = FsPromptStore::new(dir.path().to_path_buf()).unwrap();
+    let (tx, rx) = mpsc::channel();
+    let _handle = store.watch(tx).expect("watch ok");
+
+    // Give the watcher a moment to attach before mutating the dir.
+    std::thread::sleep(Duration::from_millis(100));
+
+    write_prompt(dir.path(), "added.md", "---\ntitle: a\n---\ny\n");
+
+    let event = rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("expected a Reloaded event within 2s");
+    assert!(matches!(event, prompt_store::Event::Reloaded));
+}
+
+#[test]
+fn watch_coalesces_burst_into_single_event() {
+    let dir = TempDir::new().unwrap();
+    let store = FsPromptStore::new(dir.path().to_path_buf()).unwrap();
+    let (tx, rx) = mpsc::channel();
+    let _handle = store.watch(tx).expect("watch ok");
+
+    std::thread::sleep(Duration::from_millis(100));
+
+    // Write 5 files in rapid succession — debouncer should collapse to one event.
+    for i in 0..5 {
+        write_prompt(dir.path(), &format!("p{i}.md"), "---\ntitle: t\n---\n\n");
+    }
+
+    let _first = rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("first event");
+    // Drain any extras within a generous window. There should be at most 1 (rarely 2 if
+    // a fs event landed exactly at the edge of debouncing); we tolerate ≤2 total.
+    let mut extras = 0;
+    while rx.recv_timeout(Duration::from_millis(500)).is_ok() {
+        extras += 1;
+        if extras > 2 {
+            panic!("debounce failed: too many events for one burst");
+        }
+    }
+    assert!(extras <= 1, "expected ≤2 events total, got {}", extras + 1);
+}
