@@ -1,0 +1,412 @@
+/*
+ * Tokens ported from docs/DESIGN.md. Runtime alpha form per the spec's
+ * "Vibrancy & translucency at runtime" table — the hex values in the spec
+ * are for WCAG contrast checks and downstream exports.
+ */
+:root {
+  /* Overlay sizing — matches tauri.conf.json windows[0] */
+  --overlay-w: 600px;
+  --overlay-h: 400px;
+  --overlay-radius: 14px;
+
+  /* Type families. macOS native first, Inter as documented web fallback. */
+  --font-ui: -apple-system, "SF Pro Text", "SF Pro Display", Inter, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  /* Type scale — exactly five steps per DESIGN.md */
+  --fs-input: 19px;
+  --fs-display: 15px;
+  --fs-body: 14px;
+  --fs-meta: 12px;
+  --fs-hint: 12px;
+  --fs-mono: 11px;
+  --fs-tag: 10.5px;
+
+  /* Radii — exactly four steps per DESIGN.md (+ xl for the overlay) */
+  --r-xs: 2px;
+  --r-sm: 4px;
+  --r-md: 7px;
+  --r-lg: 8px;
+  --r-xl: 14px;
+
+  /* Spacing — 4px base, named tokens only */
+  --sp-xs: 4px;
+  --sp-sm: 6px;
+  --sp-md: 8px;
+  --sp-lg: 12px;
+  --sp-xl: 14px;
+  --sp-xxl: 16px;
+  --sp-xxxl: 18px;
+  --sp-xxxxl: 22px;
+
+  /* Accent — two-token system. See DESIGN.md § "The two-accent split". */
+  --accent: #3D6FE8;          /* fills that carry text (WCAG AA on white) */
+  --accent-strong: #2F5BD0;   /* darker hover/pressed for primary fills */
+  --accent-tint: #5B8CFF;     /* decoration only: selection, brand dot, focus glow */
+  --accent-on: #FFFFFF;
+  --accent-ink: #9BB6FF;      /* AA-safe ink on tinted surface (match-highlight) */
+
+  /* Surface (runtime alpha for vibrancy). Solid fallback in --surface-solid. */
+  --surface: rgba(28, 28, 32, 0.78);
+  --surface-solid: #222226;
+  --surface-raised: rgba(255, 255, 255, 0.04);  /* row-hover */
+  --surface-selected: color-mix(in oklch, var(--accent-tint) 22%, transparent);
+  --surface-tag: rgba(255, 255, 255, 0.06);
+  --surface-match: color-mix(in oklch, var(--accent-tint) 32%, transparent);
+
+  /* Ink */
+  --ink: rgba(255, 255, 255, 0.96);
+  --ink-muted: rgba(255, 255, 255, 0.62);
+  --ink-faint: rgba(255, 255, 255, 0.42);
+
+  /* Hairlines */
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.14);
+
+  /* kbd */
+  --kbd-bg: rgba(255, 255, 255, 0.08);
+  --kbd-ink: rgba(255, 255, 255, 0.72);
+
+  /* Kind chip hues — map 1:1 to top-level subdir of ~/.prompts/. */
+  --kind-claude:  #E88A4D;
+  --kind-codex:   #6FD06F;
+  --kind-chatgpt: #59C1A5;
+  --kind-shared:  #B8A4FF;
+  --kind-writing: #FFD166;
+
+  /* Window-level depth. One elevation layer only — see DESIGN.md § Elevation. */
+  --shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 30px 80px -10px rgba(0, 0, 0, 0.55),
+    0 14px 40px -10px rgba(0, 0, 0, 0.45);
+  --backdrop-blur: 38px;
+  --backdrop-sat: 180%;
+
+  /* Density: cozy default */
+  --pad-input: var(--sp-xxxl) var(--sp-xxxxl);
+  --pad-row: 10px var(--sp-xxl);
+  --gap-row: 2px;
+  --pad-status: var(--sp-md) var(--sp-xl);
+  --row-min-h: 52px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  font-family: var(--font-ui);
+  color: var(--ink);
+  background: transparent;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.005em;
+}
+
+#overlay {
+  width: 100vw;
+  height: 100vh;
+  border-radius: var(--overlay-radius);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(var(--backdrop-blur)) saturate(var(--backdrop-sat));
+  -webkit-backdrop-filter: blur(var(--backdrop-blur)) saturate(var(--backdrop-sat));
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
+  isolation: isolate;
+  animation: pop 140ms cubic-bezier(.2, .8, .2, 1) both;
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: translateY(4px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #overlay { animation: none; }
+}
+
+/* ── Input row ──────────────────────────────────────────────── */
+.input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-lg);
+  padding: var(--pad-input);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.input-row .glyph {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  color: var(--ink-muted);
+}
+
+.input-row input {
+  appearance: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  width: 100%;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--fs-input);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+  caret-color: var(--accent-tint);
+}
+
+.input-row input::placeholder {
+  color: var(--ink-faint);
+  font-weight: 400;
+}
+
+.esc-pill {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  color: var(--kbd-ink);
+  background: var(--kbd-bg);
+  border-radius: var(--r-sm);
+  padding: 2px 6px;
+  user-select: none;
+}
+
+/* ── List ───────────────────────────────────────────────────── */
+.list-wrap {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  padding: var(--sp-sm) 0;
+}
+
+.list-wrap::-webkit-scrollbar { width: 8px; }
+.list-wrap::-webkit-scrollbar-thumb {
+  background: var(--hairline-strong);
+  border-radius: var(--r-sm);
+}
+.list-wrap::-webkit-scrollbar-track { background: transparent; }
+
+ul.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-row);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: var(--sp-lg);
+  padding: var(--pad-row);
+  min-height: var(--row-min-h);
+  margin: 0 var(--sp-sm);
+  border-radius: var(--r-lg);
+  cursor: default;
+  user-select: none;
+}
+
+.row:hover { background: var(--surface-raised); }
+
+.row.selected { background: var(--surface-selected); }
+.row.selected .row-title { color: var(--ink); }
+.row.selected .row-meta { color: var(--ink-muted); }
+
+.row-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-md);
+  display: grid;
+  place-items: center;
+  background: var(--surface-tag);
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.row-icon[data-kind="claude"]  { color: var(--kind-claude);  background: color-mix(in oklch, var(--kind-claude)  18%, transparent); }
+.row-icon[data-kind="codex"]   { color: var(--kind-codex);   background: color-mix(in oklch, var(--kind-codex)   18%, transparent); }
+.row-icon[data-kind="chatgpt"] { color: var(--kind-chatgpt); background: color-mix(in oklch, var(--kind-chatgpt) 18%, transparent); }
+.row-icon[data-kind="shared"]  { color: var(--kind-shared);  background: color-mix(in oklch, var(--kind-shared)  18%, transparent); }
+.row-icon[data-kind="writing"] { color: var(--kind-writing); background: color-mix(in oklch, var(--kind-writing) 18%, transparent); }
+
+.row-body {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: 2px;
+}
+
+.row-title {
+  font-size: var(--fs-body);
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row-meta {
+  font-size: var(--fs-meta);
+  color: var(--ink-faint);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-md);
+}
+
+.row-meta .path {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+}
+
+.row-meta .dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  opacity: 0.55;
+  flex: 0 0 3px;
+}
+
+.tag {
+  background: var(--surface-tag);
+  color: #B2B2B3;
+  border-radius: var(--r-xs);
+  padding: 1px 5px;
+  font-family: inherit;
+  font-size: var(--fs-tag);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.row-trail {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  color: var(--ink-faint);
+  font-size: var(--fs-mono);
+  font-family: var(--font-mono);
+}
+
+.row-trail .kbd { opacity: 0; }
+.row.selected .row-trail .kbd { opacity: 1; }
+
+/* ── Status row ─────────────────────────────────────────────── */
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--pad-status);
+  border-top: 1px solid var(--hairline);
+  font-size: var(--fs-hint);
+  color: var(--ink-muted);
+  gap: var(--sp-lg);
+}
+
+.status .brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  color: var(--ink-faint);
+}
+
+.status .brand {
+  font-size: var(--fs-mono);
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.status .dot-accent {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-tint);
+  box-shadow: 0 0 8px var(--accent-tint);
+}
+
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-xl);
+}
+
+.status-right .count {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum";
+  font-size: var(--fs-mono);
+  color: var(--ink-faint);
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  color: var(--kbd-ink);
+}
+
+.kbd kbd {
+  background: var(--kbd-bg);
+  color: var(--kbd-ink);
+  border-radius: var(--r-sm);
+  padding: 1px 5px;
+  font: inherit;
+  border: 0;
+  min-width: 16px;
+  text-align: center;
+  display: inline-block;
+}
+
+/* ── Match-highlight (DESIGN.md: type AND background, both required) ── */
+.match {
+  color: var(--accent-ink);
+  font-weight: 600;
+  background: var(--surface-match);
+  border-radius: var(--r-xs);
+  padding: 0 1px;
+}
+
+/* ── Empty / no-results states ─────────────────────────────── */
+.empty-state {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  text-align: center;
+  color: var(--ink-muted);
+  padding: var(--sp-xxxxl) 28px;
+}
+
+.empty-state .big {
+  color: var(--ink);
+  font-size: var(--fs-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: var(--sp-xs);
+}
+
+.empty-state .sub {
+  color: var(--ink-muted);
+  font-size: var(--fs-meta);
+  line-height: 1.45;
+  max-width: 380px;
+  margin: 0 auto;
+}
