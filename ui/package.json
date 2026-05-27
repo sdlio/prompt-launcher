@@ -1,0 +1,10 @@
+{
+  "name": "prompt-launcher-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'ui dev server lands in Phase 4' && exit 1",
+    "build": "echo 'ui build lands in Phase 4 — using prebuilt dist/index.html'"
+  }
+}

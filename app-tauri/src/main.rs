@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 fn main() {
-    // Tauri scaffolding lands in Phase 1.
+    prompt_launcher_lib::run();
 }

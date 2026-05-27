@@ -6,8 +6,12 @@
 *.swp
 src-tauri/target/
 src-tauri/gen/schemas/
+app-tauri/gen/schemas/
 node_modules/
+# Built UI output (Vite). Phase 1 ships a hand-authored placeholder; force-include it.
 dist/
+!ui/dist/
+!ui/dist/index.html
 # Cargo.lock IS committed for this binary workspace (NOT a library) — see Cargo.toml
 # header note. This pins transitive dep MSRVs (notify-types, indexmap, getrandom)
 # to versions compatible with rustc 1.83; without it a clean clone resolves newer
